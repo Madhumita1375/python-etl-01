@@ -2,9 +2,8 @@ import os
 import pandas as pd
 import boto3
 from io import StringIO
-from dotenv import load_dotenv
 from db_connection import get_connection
-load_dotenv()
+
 
 s3_bucket = os.getenv("S3_BUCKET")
 s3_path = os.getenv("S3_BUCKET_PATH")
