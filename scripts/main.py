@@ -1,35 +1,34 @@
 import os
-import importlib
+import subprocess
 from dotenv import load_dotenv
+from pathlib import Path
 from db_connection import get_connection
 
 def main():
-    load_dotenv()
-
+    env_path = Path(r"C:\Users\madhumita.sundararaj\Desktop\python-etl-01\scripts\variables.env")
+    load_dotenv(dotenv_path=env_path)
     tables = os.getenv("TABLE_LIST")
-    if not tables:
-        return
+    print(f"TABLE_LIST: {tables}\n")
 
+    if not tables:
+        print("No tables found in .env (TABLE_LIST).")
+        return
     tables = [t.strip().lower() for t in tables.split(",")]
-    conn = get_connection()
+
+    scripts_dir = Path(__file__).parent
 
     for table in tables:
-        module_name = f"scripts.extract_{table}"
-        func_name = f"extract_{table}"
+        script_path = scripts_dir / f"{table.lower()}.py"
+        if script_path.exists():
+            try:
+                subprocess.run(["python", str(script_path)], check=True)
+                print(f"Successfully executed {script_path.name}\n")
+            except subprocess.CalledProcessError as e:
+                print(f"Error while executing {script_path.name}: {e}\n")
+        else:
+            print(f"Script not found for table '{table}' ({script_path}).\n")
 
-        try:
-            module = importlib.import_module(module_name)
-            func = getattr(module, func_name)
-            func(conn)
-
-        except ModuleNotFoundError:
-            print(f"Module not found for table '{table}'.")
-        except AttributeError:
-            print(f"Function '{func_name}' not found in module '{module_name}'.")
-        except Exception as e:
-            print(f"Error processing table {table}: {e}\n")
-
-    conn.close()
-
+    print("All scripts executed successfully.")
+    
 if __name__ == "__main__":
     main()

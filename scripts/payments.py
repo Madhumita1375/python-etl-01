@@ -1,8 +1,17 @@
 import os
 import pandas as pd
-def extract_payments(conn):
-    os.makedirs("data/payments", exist_ok=True)
-    query = "SELECT * FROM PAYMENTS"
-    df = pd.read_sql(query, conn)
-    file_path = "data/payments/payments.csv"
-    df.to_csv(file_path, index=False)
+from dotenv import load_dotenv
+from db_connection import get_connection
+output_dir = os.getenv("OUTPUT_FILE")
+os.makedirs(output_dir, exist_ok=True)
+conn = get_connection()
+query = """
+SELECT CUSTOMERNUMBER, CHECKNUMBER, PAYMENTDATE, AMOUNT
+FROM PAYMENTS
+"""
+df = pd.read_sql(query, conn)
+
+file_path = os.path.join(output_dir, "payments.csv")
+df.to_csv(file_path, index=False)
+conn.close()
+print(f"Payments data saved successfully at: {file_path}")
