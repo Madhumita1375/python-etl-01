@@ -7,7 +7,7 @@ from db_connection import get_connection
 load_dotenv()
 tables = os.getenv("TABLE_LIST")
 tables = [t.strip().lower() for t in tables.split(",")]
-
+print(tables)
 
 def main():
 
@@ -19,7 +19,7 @@ def main():
         script_path = Path(f"scripts/{table.lower()}.py")
         if script_path.exists():
             try:
-                subprocess.run(["python", str(script_path)], check=True)
+                subprocess.run(["python", str(script_path),table], check=True)
                 print(f"Successfully executed {script_path.name}\n")
             except subprocess.CalledProcessError as e:
                 print(f"Error while executing {script_path.name}: {e}\n")
