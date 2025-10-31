@@ -28,8 +28,7 @@ conn = get_connection()
 query = f"""
 SELECT {columns_str}
 FROM {schema}.{table}
-WHERE (CREATE_TIMESTAMP >= TO_DATE('{batch_date}', 'YYYY-MM-DD')
-       OR UPDATE_TIMESTAMP >= TO_DATE('{batch_date}', 'YYYY-MM-DD'))
+WHERE UPDATE_TIMESTAMP >= TO_DATE('{batch_date}', 'YYYY-MM-DD')
 """
 
 df = pd.read_sql(query, conn)
