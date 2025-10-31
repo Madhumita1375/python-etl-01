@@ -16,7 +16,7 @@ def main():
         return
 
     for table in tables:
-        script_path = Path(f"scripts/{table.lower()}.py")
+        script_path = Path(f"Source_to_S3/{table.lower()}.py")
         if script_path.exists():
             try:
                 subprocess.run(["python", str(script_path),table], check=True)
