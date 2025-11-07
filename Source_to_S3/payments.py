@@ -26,7 +26,7 @@ conn = get_connection()
 
 query = f"""
 SELECT {columns_str}
-FROM {schema}.{table}
+FROM {table}@madhu_test_dblink
 WHERE UPDATE_TIMESTAMP >= TO_DATE('{batch_date}', 'YYYY-MM-DD')
 """
 

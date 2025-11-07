@@ -16,8 +16,9 @@ table = sys.argv[1].lower()
 
 s3_bucket = os.getenv("S3_BUCKET")
 batch_date = os.getenv("BATCH_DATE")
+print(batch_date)
 schema=os.getenv("DB_SCHEMA")
-print(schema)
+
 table_columns = [
         "CUSTOMERNUMBER", "CUSTOMERNAME", "CONTACTLASTNAME", "CONTACTFIRSTNAME",
         "PHONE", "ADDRESSLINE1", "ADDRESSLINE2", "CITY", "STATE",
@@ -29,16 +30,16 @@ conn = get_connection()
 
 query = f"""
 SELECT {columns_str}
-FROM {schema}.{table}
+FROM {table}@madhu_test_dblink
 WHERE UPDATE_TIMESTAMP >= TO_DATE('{batch_date}', 'YYYY-MM-DD')
 """
 
 df = pd.read_sql(query, conn)
-
+df["SALESREPEMPLOYEENUMBER"] = df["SALESREPEMPLOYEENUMBER"].astype("Int64")
 csv_buffer = StringIO()
 df.to_csv(csv_buffer, index=False)
 
-s3 = boto3.client("s3")
+s3 = boto3.client("s3", region_name="eu-north-1")
 s3_path = f"{table.upper()}/{batch_date}/{table}.csv"
 
 s3.put_object(

@@ -17,7 +17,7 @@ table = sys.argv[1].lower()
 s3_bucket = os.getenv("S3_BUCKET")
 batch_date = os.getenv("BATCH_DATE")
 schema=os.getenv("DB_SCHEMA")
-print(schema)
+
 table_columns = [
 "PRODUCTCODE", "PRODUCTNAME", "PRODUCTLINE", "PRODUCTSCALE", "PRODUCTVENDOR","PRODUCTDESCRIPTION", "QUANTITYINSTOCK", "BUYPRICE", "MSRP", "CREATE_TIMESTAMP","UPDATE_TIMESTAMP"
     ]
@@ -27,7 +27,7 @@ conn = get_connection()
 
 query = f"""
 SELECT {columns_str}
-FROM {schema}.{table}
+FROM {table}@madhu_test_dblink
 WHERE UPDATE_TIMESTAMP >= TO_DATE('{batch_date}', 'YYYY-MM-DD')
 """
 
