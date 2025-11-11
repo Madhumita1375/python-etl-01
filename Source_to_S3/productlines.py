@@ -1,49 +1,53 @@
 import os
-import sys
-import pandas as pd
 import boto3
+import csv
 from io import StringIO
 from dotenv import load_dotenv
 from db_connection import get_connection
 
-load_dotenv()
+def export_productlines_to_s3():
+    load_dotenv()
 
-if len(sys.argv) < 2:
-    print("Table name not provided. Exiting.")
-    sys.exit(1)
+    table_name = "productlines"
+    s3_bucket = os.getenv("S3_BUCKET")
+    ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
 
-table = sys.argv[1].lower()
 
-s3_bucket = os.getenv("S3_BUCKET")
-batch_date = os.getenv("BATCH_DATE")
-schema=os.getenv('DB_SCHEMA')
-table_columns = [
-"PRODUCTLINE", "TEXTDESCRIPTION", "HTMLDESCRIPTION", "IMAGE", "CREATE_TIMESTAMP","UPDATE_TIMESTAMP"
-    ]
-columns_str = ", ".join(table_columns)
+    print(f"\nProcessing table: {table_name}")
+    print(f"Batch Date: {ETL_BATCH_DATE}")
 
-conn = get_connection()
+    table_columns = [
+        "PRODUCTLINE", "TEXTDESCRIPTION", "CREATE_TIMESTAMP","UPDATE_TIMESTAMP"
+        ]
+    columns_str = ", ".join(table_columns)
 
-query = f"""
-SELECT {columns_str}
-FROM {table}@madhu_test_dblink
-WHERE UPDATE_TIMESTAMP >= TO_DATE('{batch_date}', 'YYYY-MM-DD')
-"""
+    conn = get_connection()
+    cur = conn.cursor()
 
-df = pd.read_sql(query, conn)
+    query = f"""
+    SELECT {columns_str}
+    FROM {table_name}@madhu_test_dblink
+    WHERE UPDATE_TIMESTAMP >= TO_DATE('{ETL_BATCH_DATE}', 'YYYY-MM-DD')
+    """
+    cur.execute(query)
 
-csv_buffer = StringIO()
-df.to_csv(csv_buffer, index=False)
+    columns = [desc[0] for desc in cur.description]
+    rows = cur.fetchall()
 
-s3 = boto3.client("s3")
-s3_path = f"{table.upper()}/{batch_date}/{table}.csv"
 
-s3.put_object(
-    Bucket=s3_bucket,
-    Key=s3_path,
-    Body=csv_buffer.getvalue()
-)
+    csv_buffer = StringIO()
+    writer = csv.writer(csv_buffer, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(columns)
+    for row in rows:
+        writer.writerow(row)
 
-print(f"{table}.csv uploaded successfully to s3://{s3_bucket}/{s3_path}")
+    s3 = boto3.client("s3", region_name="eu-north-1")
+    s3_path = f"{table_name.upper()}/{ETL_BATCH_DATE}/{table_name}.csv"
+    s3.put_object(Bucket=s3_bucket, Key=s3_path, Body=csv_buffer.getvalue())
 
-conn.close()
+    print(f"{table_name}.csv uploaded successfully to s3://{s3_bucket}/{s3_path}")
+    conn.close()
+if __name__ == "__main__":
+    export_productlines_to_s3()
+
+

@@ -15,14 +15,14 @@ def main():
         return
     
     for table in tables:
-        batch_date = get_batch_date_from_redshift(table)
-        update_env_batch_date(batch_date)
-        #print(batch_date)
+        ETL_BATCH_DATE = get_batch_date_from_redshift(table)
+        update_env_batch_date(ETL_BATCH_DATE)
+        #print(ETL_BATCH_DATE)
 
         script_path = Path(f"Source_to_S3/{table.lower()}.py")
         if script_path.exists():
             try:
-                subprocess.run(["python", str(script_path), table], check=True)
+                subprocess.run(["python", str(script_path)], check=True)
                 print(f"Successfully executed {script_path.name}")
             except subprocess.CalledProcessError as e:
                 print(f"Error while executing {script_path.name}: {e}")

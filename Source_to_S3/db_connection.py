@@ -24,14 +24,14 @@ def get_batch_date_from_redshift(table):
     conn.close()
     return result[0].strftime("%Y-%m-%d")
 
-def update_env_batch_date(batch_date):
+def update_env_batch_date(ETL_BATCH_DATE):
     with open(".env", "r") as f:
         lines = f.readlines()
 
     with open(".env", "w") as f:
         for line in lines:
-            if line.startswith("BATCH_DATE"):
-                f.write(f"BATCH_DATE={batch_date}\n")
+            if line.startswith("ETL_BATCH_DATE"):
+                f.write(f"ETL_BATCH_DATE={ETL_BATCH_DATE}\n")
             else:
                 f.write(line)
 
@@ -39,13 +39,15 @@ def get_connection():
     db_user = os.getenv("DB_USER")
     db_password = os.getenv("DB_PASSWORD")
     db_dsn = os.getenv("DB_DSN")
-    batch_date = os.getenv("BATCH_DATE")
-
+    ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
+    db_host=os.getenv("DB_HOST")
+    db_port=os.getenv("DB_PORT")
+    db_service=os.getenv("DB_SERVICE")
     
-    if batch_date == "2001-01-01":
+    if ETL_BATCH_DATE == "2001-01-01":
         db_link_date = datetime.strptime("2005-06-09", "%Y-%m-%d")
     else:
-        db_link_date = datetime.strptime(batch_date, "%Y-%m-%d")
+        db_link_date = datetime.strptime(ETL_BATCH_DATE, "%Y-%m-%d")
 
     print(f"DB Link Date: {db_link_date.strftime('%Y-%m-%d')}")
 
@@ -70,10 +72,10 @@ def get_connection():
         EXECUTE IMMEDIATE q'[CREATE PUBLIC DATABASE LINK madhu_test_dblink
         CONNECT TO {schema_name} IDENTIFIED BY "{schema_password}"
         USING '(DESCRIPTION=
-            (ADDRESS=(PROTOCOL=TCP)
-                     (HOST=classicmodels-2025.cvm8ii9txcwr.us-east-1.rds.amazonaws.com)
-                     (PORT=1521))
-            (CONNECT_DATA=(SERVICE_NAME=ORCL))
+  (ADDRESS=(PROTOCOL=TCP)
+           (HOST={db_host})
+           (PORT={db_port}))
+  (CONNECT_DATA=(SERVICE_NAME={db_service}))
         )']';
     END;
     """

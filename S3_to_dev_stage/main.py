@@ -5,21 +5,37 @@ from dotenv import load_dotenv
 from redshift_con import redshift_get_connection
 
 load_dotenv()
+redshift_schema_etl_metadata=os.getenv("REDSHIFT_SCHEMA_ETL")
+redshift_date_table=os.getenv("REDSHIFT_TABLE_ETL")
+batch_date_col="etl_batch_date"
 def s3_to_redshift(table):
     s3_bucket = os.getenv("S3_BUCKET")
-    batch_date = os.getenv("BATCH_DATE")
+    ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
     region = os.getenv("AWS_REGION", "eu-north-1")
     iam_role = os.getenv("REDSHIFT_IAM_ROLE")
     schema = os.getenv("REDSHIFT_SCHEMA", "public")
 
-    s3_path = f"s3://{s3_bucket}/{table.upper()}/{batch_date}/{table}.csv"
+    s3_path = f"s3://{s3_bucket}/{table.upper()}/{ETL_BATCH_DATE}/{table}.csv"
 
     print(f"Loading table: {schema}.{table}")
-    print(f"Batch Date   : {batch_date}")
+    print(f"Batch Date   : {ETL_BATCH_DATE}")
     print(f"S3 File      : {s3_path}")
 
     conn = redshift_get_connection()
     cur = conn.cursor()
+    cur.execute(f"SELECT {batch_date_col} FROM {redshift_schema_etl_metadata}.{redshift_date_table}")
+    result = cur.fetchone()
+    ETL_BATCH_DATE = result[0].strftime("%Y-%m-%d")
+    print(ETL_BATCH_DATE)
+    with open(".env", "r") as f:
+        lines = f.readlines()
+
+    with open(".env", "w") as f:
+        for line in lines:
+            if line.startswith("ETL_BATCH_DATE"):
+                f.write(f"ETL_BATCH_DATE={ETL_BATCH_DATE}\n")
+            else:
+                f.write(line)
 
     truncate_sql = f"TRUNCATE {schema}.{table};"
 
@@ -31,11 +47,7 @@ def s3_to_redshift(table):
     FORMAT AS CSV
     DELIMITER ','
     IGNOREHEADER 1
-    EMPTYASNULL
-    BLANKSASNULL
-    ACCEPTINVCHARS
     TRUNCATECOLUMNS
-    FILLRECORD
     TIMEFORMAT 'auto'
     DATEFORMAT 'auto';
     """
