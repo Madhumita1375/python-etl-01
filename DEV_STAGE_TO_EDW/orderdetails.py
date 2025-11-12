@@ -6,6 +6,7 @@ load_dotenv()
 
 ETL_BATCH_NO = os.getenv("ETL_BATCH_NO")
 ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
+REDSHIFT_SCHEMA_DW=os.getenv("REDSHIFT_SCHEMA_DW")
 
 try:
     conn = psycopg2.connect(
@@ -16,11 +17,9 @@ try:
         password=os.getenv("REDSHIFT_PASSWORD")
     )
     cur = conn.cursor()
-    print("Connected to Redshift successfully\n")
 
-    # Insert new records
     insert_sql = f"""
-        INSERT INTO j25madhumita_devdw.orderdetails (
+        INSERT INTO {REDSHIFT_SCHEMA_DW}.orderdetails (
             src_orderNumber,
             src_productCode,
             quantityOrdered,
@@ -42,14 +41,13 @@ try:
             {ETL_BATCH_NO} AS etl_batch_no,
             '{ETL_BATCH_DATE}' AS etl_batch_date
         FROM j25madhumita_devstage.orderdetails s
-        LEFT JOIN j25madhumita_devdw.orderdetails o
+        LEFT JOIN {REDSHIFT_SCHEMA_DW}.orderdetails o
             ON s.orderNumber = o.src_orderNumber AND s.productCode = o.src_productCode
         WHERE o.src_orderNumber IS NULL AND o.src_productCode IS NULL;
     """
     cur.execute(insert_sql)
-    print(f"Inserted {cur.rowcount} new records into DW.\n")
+    #print(f"Inserted {cur.rowcount} new records into DW.\n")
 
-    # Update existing records
     update_sql = f"""
         WITH updated AS (
             SELECT
@@ -60,11 +58,11 @@ try:
                 s.orderLineNumber,
                 s.update_timestamp AS src_update_timestamp
             FROM j25madhumita_devstage.orderdetails s
-            JOIN j25madhumita_devdw.orderdetails d
+            JOIN {REDSHIFT_SCHEMA_DW}.orderdetails d
                 ON s.orderNumber = d.src_orderNumber AND s.productCode = d.src_productCode
             WHERE s.update_timestamp > d.src_update_timestamp
         )
-        UPDATE j25madhumita_devdw.orderdetails
+        UPDATE {REDSHIFT_SCHEMA_DW}.orderdetails
         SET
             quantityOrdered = u.quantityOrdered,
             priceEach = u.priceEach,
@@ -73,31 +71,29 @@ try:
             etl_batch_no = {ETL_BATCH_NO},
             etl_batch_date = '{ETL_BATCH_DATE}'
         FROM updated u
-        WHERE j25madhumita_devdw.orderdetails.src_orderNumber = u.src_orderNumber
-          AND j25madhumita_devdw.orderdetails.src_productCode = u.src_productCode;
+        WHERE {REDSHIFT_SCHEMA_DW}.orderdetails.src_orderNumber = u.src_orderNumber
+          AND {REDSHIFT_SCHEMA_DW}.orderdetails.src_productCode = u.src_productCode;
     """
     cur.execute(update_sql)
-    print(f"Updated {cur.rowcount} existing records in DW.\n")
+    #print(f"Updated {cur.rowcount} existing records in DW.\n")
 
-    # Update foreign key: dw_order_id
-    update_order_ref = """
-        UPDATE j25madhumita_devdw.orderdetails
+    update_order_ref = f"""
+        UPDATE {REDSHIFT_SCHEMA_DW}.orderdetails
         SET dw_order_id = o.dw_order_id
-        FROM j25madhumita_devdw.orders o
-        WHERE j25madhumita_devdw.orderdetails.src_orderNumber = o.src_orderNumber;
+        FROM {REDSHIFT_SCHEMA_DW}.orders o
+        WHERE {REDSHIFT_SCHEMA_DW}.orderdetails.src_orderNumber = o.src_orderNumber;
     """
     cur.execute(update_order_ref)
-    print(f"Updated {cur.rowcount} order references in DW.\n")
+    #print(f"Updated {cur.rowcount} order references in DW.\n")
 
-    # Update foreign key: dw_product_id
-    update_product_ref = """
-        UPDATE j25madhumita_devdw.orderdetails
+    update_product_ref = f"""
+        UPDATE {REDSHIFT_SCHEMA_DW}.orderdetails
         SET dw_product_id = p.dw_product_id
-        FROM j25madhumita_devdw.products p
-        WHERE j25madhumita_devdw.orderdetails.src_productCode = p.src_productCode;
+        FROM {REDSHIFT_SCHEMA_DW}.products p
+        WHERE {REDSHIFT_SCHEMA_DW}.orderdetails.src_productCode = p.src_productCode;
     """
     cur.execute(update_product_ref)
-    print(f"Updated {cur.rowcount} product references in DW.\n")
+    #print(f"Updated {cur.rowcount} product references in DW.\n")
 
     conn.commit()
 
@@ -108,4 +104,3 @@ except Exception as e:
 finally:
     cur.close()
     conn.close()
-    print("Connection closed.")

@@ -6,6 +6,7 @@ load_dotenv()
 
 ETL_BATCH_NO = os.getenv("ETL_BATCH_NO")
 ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
+REDSHIFT_SCHEMA_DW=os.getenv("REDSHIFT_SCHEMA_DW")
 
 try:
     conn = psycopg2.connect(
@@ -16,10 +17,10 @@ try:
         password=os.getenv("REDSHIFT_PASSWORD")
     )
     cur = conn.cursor()
-    print("Connected to Redshift successfully!\n")
+    #print("Connected to Redshift successfully!\n")
 
     insert_query = f"""
-    INSERT INTO j25madhumita_devdw.daily_product_summary (
+    INSERT INTO {REDSHIFT_SCHEMA_DW}.daily_product_summary (
         summary_date,
         dw_product_id,
         customer_apd,
@@ -46,9 +47,9 @@ try:
             0 AS cancelled_cost_amount,
             0 AS cancelled_mrp_amount,
             0 AS cancelled_order_apd
-        FROM j25madhumita_devdw.orderdetails od
-        JOIN j25madhumita_devdw.orders o ON od.src_orderNumber = o.src_orderNumber
-        JOIN j25madhumita_devdw.products p ON od.src_productCode = p.src_productCode
+        FROM {REDSHIFT_SCHEMA_DW}.orderdetails od
+        JOIN {REDSHIFT_SCHEMA_DW}.orders o ON od.src_orderNumber = o.src_orderNumber
+        JOIN {REDSHIFT_SCHEMA_DW}.products p ON od.src_productCode = p.src_productCode
         WHERE CAST(o.orderDate AS DATE)>= '{ETL_BATCH_DATE}'
         GROUP BY o.orderDate, od.dw_product_id
 
@@ -65,9 +66,9 @@ try:
             SUM(od.quantityOrdered * od.priceEach) AS cancelled_cost_amount,
             SUM(od.quantityOrdered * p.MSRP) AS cancelled_mrp_amount,
             1 AS cancelled_order_apd
-        FROM j25madhumita_devdw.orderdetails od
-        JOIN j25madhumita_devdw.orders o ON od.src_orderNumber = o.src_orderNumber
-        JOIN j25madhumita_devdw.products p ON od.src_productCode = p.src_productCode
+        FROM {REDSHIFT_SCHEMA_DW}.orderdetails od
+        JOIN {REDSHIFT_SCHEMA_DW}.orders o ON od.src_orderNumber = o.src_orderNumber
+        JOIN {REDSHIFT_SCHEMA_DW}.products p ON od.src_productCode = p.src_productCode
         WHERE CAST(o.cancelledDate AS DATE) >= '{ETL_BATCH_DATE}'
           AND UPPER(TRIM(o.status)) = 'CANCELLED'
         GROUP BY o.cancelledDate, od.dw_product_id
@@ -91,7 +92,7 @@ try:
     """
 
     cur.execute(insert_query)
-    print(f"Inserted {cur.rowcount} rows into daily_product_summary.\n")
+    #print(f"Inserted {cur.rowcount} rows into daily_product_summary.\n")
     conn.commit()
 
 except Exception as e:
@@ -101,4 +102,3 @@ except Exception as e:
 finally:
     cur.close()
     conn.close()
-    print("Connection closed.")

@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# --- Redshift connection ---
 def get_redshift_conn():
     return psycopg2.connect(
         host=os.getenv("REDSHIFT_HOST"),
@@ -15,7 +14,6 @@ def get_redshift_conn():
         password=os.getenv("REDSHIFT_PASSWORD")
     )
 
-# --- Initialize / Update Batch Start ---
 def log_batch_start(batch_no, ETL_BATCH_DATE):
     try:
         conn = get_redshift_conn()
@@ -56,7 +54,6 @@ def log_batch_start(batch_no, ETL_BATCH_DATE):
     except Exception as e:
         print(f"Error logging batch start: {e}")
 
-# --- Mark Batch as Completed ---
 def log_batch_success(batch_no):
     try:
         conn = get_redshift_conn()
@@ -78,7 +75,6 @@ def log_batch_success(batch_no):
     except Exception as e:
         print(f"Error logging batch success: {e}")
 
-# --- Mark Batch as Failed ---
 def log_batch_failure(batch_no):
     try:
         conn = get_redshift_conn()

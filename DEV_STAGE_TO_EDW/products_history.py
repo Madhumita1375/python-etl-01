@@ -6,12 +6,8 @@ load_dotenv()
 
 ETL_BATCH_NO = os.getenv("ETL_BATCH_NO")
 ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
+REDSHIFT_SCHEMA_DW=os.getenv("REDSHIFT_SCHEMA_DW")
 
-if not ETL_BATCH_NO or not ETL_BATCH_DATE or ETL_BATCH_NO == "None" or ETL_BATCH_DATE == "None":
-    from main import get_etl_batch_details
-    ETL_BATCH_NO, ETL_BATCH_DATE = get_etl_batch_details()
-
-print(f"\nRunning products_history ETL | Batch No: {ETL_BATCH_NO} | Date: {ETL_BATCH_DATE}\n")
 
 try:
     conn = psycopg2.connect(
@@ -22,17 +18,16 @@ try:
         password=os.getenv("REDSHIFT_PASSWORD")
     )
     cur = conn.cursor()
-    print("Connected to Redshift successfully!\n")
 
     update_sql = f"""
-    UPDATE j25madhumita_devdw.product_history AS hist
+    UPDATE {REDSHIFT_SCHEMA_DW}.product_history AS hist
     SET 
         dw_active_record_ind = 0,
         effective_to_date = DATEADD(day, -1, '{ETL_BATCH_DATE}'),
         update_etl_batch_no = {ETL_BATCH_NO},
         update_etl_batch_date = '{ETL_BATCH_DATE}',
         dw_update_timestamp = GETDATE()
-    FROM j25madhumita_devdw.products AS prod
+    FROM {REDSHIFT_SCHEMA_DW}.products AS prod
     WHERE 
         hist.dw_active_record_ind = 1
         AND hist.dw_product_id = prod.dw_product_id
@@ -40,10 +35,10 @@ try:
     """
 
     cur.execute(update_sql)
-    print(f"Updated {cur.rowcount} old records in product_history.\n")
+    #print(f"Updated {cur.rowcount} old records in product_history.\n")
 
     insert_sql = f"""
-    INSERT INTO j25madhumita_devdw.product_history (
+    INSERT INTO {REDSHIFT_SCHEMA_DW}.product_history (
         dw_product_id,
         MSRP,
         effective_from_date,
@@ -62,8 +57,8 @@ try:
         GETDATE() AS dw_update_timestamp,
         {ETL_BATCH_NO} AS create_etl_batch_no,
         '{ETL_BATCH_DATE}' AS create_etl_batch_date
-    FROM j25madhumita_devdw.products AS prod
-    LEFT JOIN j25madhumita_devdw.product_history AS hist 
+    FROM {REDSHIFT_SCHEMA_DW}.products AS prod
+    LEFT JOIN {REDSHIFT_SCHEMA_DW}.product_history AS hist 
         ON prod.dw_product_id = hist.dw_product_id
         AND hist.dw_active_record_ind = 1
     WHERE 
@@ -72,7 +67,7 @@ try:
     """
 
     cur.execute(insert_sql)
-    print(f"Inserted {cur.rowcount} new records into product_history.\n")
+    #print(f"Inserted {cur.rowcount} new records into product_history.\n")
 
     conn.commit()
 
@@ -83,4 +78,3 @@ except Exception as e:
 finally:
     cur.close()
     conn.close()
-    print("Connection closed.\n")

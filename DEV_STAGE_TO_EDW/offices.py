@@ -6,6 +6,7 @@ load_dotenv()
 
 ETL_BATCH_NO = os.getenv("ETL_BATCH_NO")
 ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
+REDSHIFT_SCHEMA_DW=os.getenv("REDSHIFT_SCHEMA_DW")
 
 try:
     conn = psycopg2.connect(
@@ -16,9 +17,8 @@ try:
         password=os.getenv("REDSHIFT_PASSWORD")
     )
     cur = conn.cursor()
-    print("Connected to Redshift successfully!\n")
     insert_sql = f"""
-        INSERT INTO j25madhumita_devdw.offices (
+        INSERT INTO {REDSHIFT_SCHEMA_DW}.offices (
             officeCode,
             city,
             phone,
@@ -48,12 +48,12 @@ try:
             {ETL_BATCH_NO} AS etl_batch_no,
             '{ETL_BATCH_DATE}' AS etl_batch_date
         FROM j25madhumita_devstage.offices s
-        LEFT JOIN j25madhumita_devdw.offices o
+        LEFT JOIN {REDSHIFT_SCHEMA_DW}.offices o
             ON s.officeCode = o.officeCode
         WHERE o.officeCode IS NULL;
     """
     cur.execute(insert_sql)
-    print(f"Inserted {cur.rowcount} new records into DW.\n")
+    #print(f"Inserted {cur.rowcount} new records into DW.\n")
 
     update_sql = f"""
         WITH updated AS (
@@ -69,11 +69,11 @@ try:
                 s.territory,
                 s.update_timestamp AS src_update_timestamp
             FROM j25madhumita_devstage.offices s
-            JOIN j25madhumita_devdw.offices d
+            JOIN {REDSHIFT_SCHEMA_DW}.offices d
                 ON s.officeCode = d.officeCode
             WHERE s.update_timestamp > d.src_update_timestamp
         )
-        UPDATE j25madhumita_devdw.offices
+        UPDATE {REDSHIFT_SCHEMA_DW}.offices
         SET
             city = u.city,
             phone = u.phone,
@@ -87,10 +87,10 @@ try:
             etl_batch_no = {ETL_BATCH_NO},
             etl_batch_date = '{ETL_BATCH_DATE}'
         FROM updated u
-        WHERE j25madhumita_devdw.offices.officeCode = u.dw_officeCode;
+        WHERE {REDSHIFT_SCHEMA_DW}.offices.officeCode = u.dw_officeCode;
     """
     cur.execute(update_sql)
-    print(f"Updated {cur.rowcount} existing records in DW.\n")
+    #print(f"Updated {cur.rowcount} existing records in DW.\n")
 
     conn.commit()
 
@@ -101,4 +101,3 @@ except Exception as e:
 finally:
     cur.close()
     conn.close()
-    print("Connection closed.")

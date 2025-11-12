@@ -2,21 +2,14 @@ import os
 import psycopg2
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Get batch details from environment or main.py
 ETL_BATCH_NO = os.getenv("ETL_BATCH_NO")
 ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
+REDSHIFT_SCHEMA_DW=os.getenv("REDSHIFT_SCHEMA_DW")
 
-if not ETL_BATCH_NO or not ETL_BATCH_DATE or ETL_BATCH_NO == "None" or ETL_BATCH_DATE == "None":
-    from main import get_etl_batch_details
-    ETL_BATCH_NO, ETL_BATCH_DATE = get_etl_batch_details()
-
-print(f"\nRunning CUSTOMERS ETL | Batch No: {ETL_BATCH_NO} | Date: {ETL_BATCH_DATE}\n")
 
 try:
-    # Connect to Redshift
     conn = psycopg2.connect(
         host=os.getenv("REDSHIFT_HOST"),
         port=os.getenv("REDSHIFT_PORT"),
@@ -25,10 +18,10 @@ try:
         password=os.getenv("REDSHIFT_PASSWORD")
     )
     cur = conn.cursor()
-    print("Connected to Redshift successfully!\n")
+    #print("Connected to Redshift successfully!\n")
 
     insert_sql = f"""
-    INSERT INTO j25madhumita_devdw.customers (
+    INSERT INTO {REDSHIFT_SCHEMA_DW}.customers (
         src_customerNumber,
         customerName,
         contactLastName,
@@ -66,15 +59,15 @@ try:
         {ETL_BATCH_NO} AS etl_batch_no,
         '{ETL_BATCH_DATE}' AS etl_batch_date
     FROM j25madhumita_devstage.customers AS s
-    LEFT JOIN j25madhumita_devdw.customers AS c
+    LEFT JOIN {REDSHIFT_SCHEMA_DW}.customers AS c
         ON s.customerNumber = c.src_customerNumber
     WHERE c.src_customerNumber IS NULL;
     """
     cur.execute(insert_sql)
-    print(f"Inserted {cur.rowcount} new customer records into DW.\n")
+    #print(f"Inserted {cur.rowcount} new customer records into DW.\n")
 
     update_sql = f"""
-    UPDATE j25madhumita_devdw.customers AS d
+    UPDATE {REDSHIFT_SCHEMA_DW}.customers AS d
     SET
         customerName = s.customerName,
         contactLastName = s.contactLastName,
@@ -96,16 +89,16 @@ try:
       AND s.update_timestamp > d.src_update_timestamp;
     """
     cur.execute(update_sql)
-    print(f"Updated {cur.rowcount} existing customer records in DW.\n")
+    #print(f"Updated {cur.rowcount} existing customer records in DW.\n")
 
-    update_fk_sql = """
-    UPDATE j25madhumita_devdw.customers AS c
+    update_fk_sql = f"""
+    UPDATE {REDSHIFT_SCHEMA_DW}.customers AS c
     SET dw_employee_id = e.dw_employee_id
-    FROM j25madhumita_devdw.employees AS e
+    FROM {REDSHIFT_SCHEMA_DW}.employees AS e
     WHERE c.salesRepEmployeeNumber = e.employeeNumber;
     """
     cur.execute(update_fk_sql)
-    print(f" Updated {cur.rowcount} employee references in DW.\n")
+    #print(f" Updated {cur.rowcount} employee references in DW.\n")
 
     conn.commit()
 
@@ -116,4 +109,3 @@ except Exception as e:
 finally:
     cur.close()
     conn.close()
-    print("Connection closed.\n")

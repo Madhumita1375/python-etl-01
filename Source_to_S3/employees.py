@@ -5,7 +5,8 @@ import boto3
 import csv
 from io import StringIO
 from dotenv import load_dotenv
-from db_connection import get_connection
+
+from db_connection import get_oracle_connection
 
 def export_employees_to_s3():
     load_dotenv()
@@ -22,8 +23,7 @@ def export_employees_to_s3():
 
     ]
     columns_str = ", ".join(table_columns)
-
-    conn = get_connection()
+    conn = get_oracle_connection()
     cur = conn.cursor()
 
     query = f"""

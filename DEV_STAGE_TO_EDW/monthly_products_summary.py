@@ -6,6 +6,7 @@ load_dotenv()
 
 ETL_BATCH_NO = os.getenv("ETL_BATCH_NO")
 ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
+REDSHIFT_SCHEMA_DW=os.getenv("REDSHIFT_SCHEMA_DW")
 
 try:
     conn = psycopg2.connect(
@@ -16,10 +17,9 @@ try:
         password=os.getenv("REDSHIFT_PASSWORD")
     )
     cur = conn.cursor()
-    print("Connected to Redshift successfully!\n")
 
     update_sql = f"""
-    UPDATE j25madhumita_devdw.monthly_product_summary AS mp
+    UPDATE {REDSHIFT_SCHEMA_DW}.monthly_product_summary AS mp
     SET 
         customer_apd = CASE WHEN mp.customer_apd = 1 THEN 1 ELSE dp.customer_apd END,
         customer_apm = CASE WHEN mp.customer_apm = 1 THEN 1 ELSE dp.customer_apd END,
@@ -33,16 +33,16 @@ try:
         dw_update_timestamp = GETDATE(),
         etl_batch_no = dp.etl_batch_no,
         etl_batch_date = dp.etl_batch_date
-    FROM j25madhumita_devdw.daily_product_summary AS dp
+    FROM {REDSHIFT_SCHEMA_DW}.daily_product_summary AS dp
     WHERE mp.start_of_the_month_date = DATE_TRUNC('month', dp.summary_date)
       AND mp.dw_product_id = dp.dw_product_id
       AND CAST(dp.summary_date AS DATE) >= '{ETL_BATCH_DATE}';
     """
     cur.execute(update_sql)
-    print(f"Updated {cur.rowcount} existing monthly product records.\n")
+    #print(f"Updated {cur.rowcount} existing monthly product records.\n")
 
     insert_sql = f"""
-    INSERT INTO j25madhumita_devdw.monthly_product_summary
+    INSERT INTO {REDSHIFT_SCHEMA_DW}.monthly_product_summary
     SELECT 
         DATE_TRUNC('month', dp.summary_date) AS start_of_the_month_date,
         dp.dw_product_id,
@@ -59,15 +59,15 @@ try:
         GETDATE() AS dw_update_timestamp,
         MAX(dp.etl_batch_no) AS etl_batch_no,
         MAX(dp.etl_batch_date) AS etl_batch_date
-    FROM j25madhumita_devdw.daily_product_summary dp
-    LEFT JOIN j25madhumita_devdw.monthly_product_summary mp
+    FROM {REDSHIFT_SCHEMA_DW}.daily_product_summary dp
+    LEFT JOIN {REDSHIFT_SCHEMA_DW}.monthly_product_summary mp
       ON DATE_TRUNC('month', dp.summary_date) = mp.start_of_the_month_date
       AND dp.dw_product_id = mp.dw_product_id
     WHERE mp.start_of_the_month_date IS NULL
     GROUP BY DATE_TRUNC('month', dp.summary_date), dp.dw_product_id;
     """
     cur.execute(insert_sql)
-    print(f"Inserted {cur.rowcount} new monthly product records.\n")
+    #print(f"Inserted {cur.rowcount} new monthly product records.\n")
 
     conn.commit()
 
@@ -78,4 +78,3 @@ except Exception as e:
 finally:
     cur.close()
     conn.close()
-    print("Connection closed.")

@@ -12,9 +12,7 @@ def redshift_get_connection():
             dbname=os.getenv("REDSHIFT_DB"),
             user=os.getenv("REDSHIFT_USER"),
             password=os.getenv("REDSHIFT_PASSWORD")
-        )
-        print("Connected to Redshift successfully!")
-        
+        )        
     except Exception as e:
         conn.close()
         print(f"Connection failed: {e}")

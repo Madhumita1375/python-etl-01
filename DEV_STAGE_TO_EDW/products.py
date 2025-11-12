@@ -6,7 +6,7 @@ load_dotenv()
 
 ETL_BATCH_NO = os.getenv("ETL_BATCH_NO")
 ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
-
+REDSHIFT_SCHEMA_DW=os.getenv("REDSHIFT_SCHEMA_DW")
 try:
     conn = psycopg2.connect(
         host=os.getenv("REDSHIFT_HOST"),
@@ -16,10 +16,9 @@ try:
         password=os.getenv("REDSHIFT_PASSWORD")
     )
     cur = conn.cursor()
-    print("Connected to Redshift successfully\n")
 
     insert_sql = f"""
-        INSERT INTO j25madhumita_devdw.products (
+        INSERT INTO {REDSHIFT_SCHEMA_DW}.products (
             src_productCode,
             productName,
             productLine,
@@ -49,12 +48,12 @@ try:
             {ETL_BATCH_NO} AS etl_batch_no,
             '{ETL_BATCH_DATE}' AS etl_batch_date
         FROM j25madhumita_devstage.products s
-        LEFT JOIN j25madhumita_devdw.products p
+        LEFT JOIN {REDSHIFT_SCHEMA_DW}.products p
             ON s.productCode = p.src_productCode
         WHERE p.src_productCode IS NULL;
     """
     cur.execute(insert_sql)
-    print(f"Inserted {cur.rowcount} new records into DW.\n")
+    #print(f"Inserted {cur.rowcount} new records into DW.\n")
 
     update_sql = f"""
         WITH updated AS (
@@ -70,11 +69,11 @@ try:
                 s.MSRP,
                 s.update_timestamp AS src_update_timestamp
             FROM j25madhumita_devstage.products s
-            JOIN j25madhumita_devdw.products d
+            JOIN {REDSHIFT_SCHEMA_DW}.products d
                 ON s.productCode = d.src_productCode
             WHERE s.update_timestamp > d.src_update_timestamp
         )
-        UPDATE j25madhumita_devdw.products
+        UPDATE {REDSHIFT_SCHEMA_DW}.products
         SET
             productName = u.productName,
             productLine = u.productLine,
@@ -88,19 +87,19 @@ try:
             etl_batch_no = {ETL_BATCH_NO},
             etl_batch_date = '{ETL_BATCH_DATE}'
         FROM updated u
-        WHERE j25madhumita_devdw.products.src_productCode = u.src_productCode;
+        WHERE {REDSHIFT_SCHEMA_DW}.products.src_productCode = u.src_productCode;
     """
     cur.execute(update_sql)
-    print(f"Updated {cur.rowcount} existing records in DW.\n")
+    #print(f"Updated {cur.rowcount} existing records in DW.\n")
 
-    update_query  = """
-        UPDATE j25madhumita_devdw.products
+    update_query  = f"""
+        UPDATE {REDSHIFT_SCHEMA_DW}.products
         SET dw_product_line_id = pl.dw_product_line_id
-        FROM j25madhumita_devdw.productlines pl
-        WHERE j25madhumita_devdw.products.productLine = pl.productLine;
+        FROM {REDSHIFT_SCHEMA_DW}.productlines pl
+        WHERE {REDSHIFT_SCHEMA_DW}.products.productLine = pl.productLine;
     """
     cur.execute(update_query )
-    print(f"Updated {cur.rowcount} product line references in DW.\n")
+    #print(f"Updated {cur.rowcount} product line references in DW.\n")
 
     conn.commit()
 
@@ -111,4 +110,3 @@ except Exception as e:
 finally:
     cur.close()
     conn.close()
-    print("Connection closed.")

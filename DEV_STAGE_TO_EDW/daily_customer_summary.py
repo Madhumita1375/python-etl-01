@@ -2,21 +2,19 @@ import os
 import psycopg2
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Import batch context helper from main.py if values are missing
 ETL_BATCH_NO = os.getenv("ETL_BATCH_NO")
 ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
+REDSHIFT_SCHEMA_DW=os.getenv("REDSHIFT_SCHEMA_DW")
 
-if not ETL_BATCH_NO or not ETL_BATCH_DATE or ETL_BATCH_NO == "None" or ETL_BATCH_DATE == "None":
-    from main import get_etl_batch_details
-    ETL_BATCH_NO, ETL_BATCH_DATE = get_etl_batch_details()
+# if not ETL_BATCH_NO or not ETL_BATCH_DATE or ETL_BATCH_NO == "None" or ETL_BATCH_DATE == "None":
+#     from main import get_etl_batch_details
+#     ETL_BATCH_NO, ETL_BATCH_DATE = get_etl_batch_details()
 
-print(f"\nRunning daily_customer_summary ETL | Batch No: {ETL_BATCH_NO} | Date: {ETL_BATCH_DATE}\n")
+#print(f"\nRunning daily_customer_summary ETL ,Batch No: {ETL_BATCH_NO} , Date: {ETL_BATCH_DATE}\n")
 
 try:
-    # Connect to Redshift
     conn = psycopg2.connect(
         host=os.getenv("REDSHIFT_HOST"),
         port=os.getenv("REDSHIFT_PORT"),
@@ -25,10 +23,10 @@ try:
         password=os.getenv("REDSHIFT_PASSWORD")
     )
     cur = conn.cursor()
-    print("Connected to Redshift successfully!\n")
+    #print("Connected to Redshift successfully!\n")
 
     query = f"""
-    INSERT INTO j25madhumita_devdw.daily_customer_summary (
+    INSERT INTO {REDSHIFT_SCHEMA_DW}.daily_customer_summary (
         summary_date,
         dw_customer_id,
         order_count,
@@ -55,7 +53,7 @@ try:
     WITH first_payment_cte AS (
         SELECT dw_customer_id,
                MIN(paymentDate) AS first_payment_date
-        FROM j25madhumita_devdw.PAYMENTS
+        FROM {REDSHIFT_SCHEMA_DW}.PAYMENTS
         GROUP BY dw_customer_id
     )
     SELECT summary_date,
@@ -85,7 +83,6 @@ try:
            MAX(etl_batch_date) AS etl_batch_date
     FROM (
 
-        -- CUSTOMER CREATION
         SELECT DATE(c.src_create_timestamp) AS summary_date,
                c.dw_customer_id,
                0 AS order_count,
@@ -108,7 +105,7 @@ try:
                c.src_update_timestamp AS dw_update_timestamp,
                c.etl_batch_no,
                c.etl_batch_date
-        FROM j25madhumita_devdw.CUSTOMERS c
+        FROM {REDSHIFT_SCHEMA_DW}.CUSTOMERS c
         WHERE CAST(c.src_create_timestamp AS DATE) >= '{ETL_BATCH_DATE}'
         GROUP BY c.dw_customer_id, c.src_create_timestamp, c.src_update_timestamp, c.etl_batch_no, c.etl_batch_date
 
@@ -137,9 +134,9 @@ try:
                o.src_update_timestamp AS dw_update_timestamp,
                od.etl_batch_no,
                od.etl_batch_date
-        FROM j25madhumita_devdw.ORDERDETAILS od
-        JOIN j25madhumita_devdw.ORDERS o ON o.dw_order_id = od.dw_order_id
-        JOIN j25madhumita_devdw.PRODUCTS p ON od.dw_product_id = p.dw_product_id
+        FROM {REDSHIFT_SCHEMA_DW}.ORDERDETAILS od
+        JOIN {REDSHIFT_SCHEMA_DW}.ORDERS o ON o.dw_order_id = od.dw_order_id
+        JOIN {REDSHIFT_SCHEMA_DW}.PRODUCTS p ON od.dw_product_id = p.dw_product_id
         WHERE CAST(o.orderDate AS DATE) >= '{ETL_BATCH_DATE}'
         GROUP BY o.orderDate, o.dw_customer_id, o.src_create_timestamp, o.src_update_timestamp, od.etl_batch_no, od.etl_batch_date
 
@@ -168,8 +165,8 @@ try:
                o.src_update_timestamp AS dw_update_timestamp,
                od.etl_batch_no,
                od.etl_batch_date
-        FROM j25madhumita_devdw.ORDERDETAILS od
-        JOIN j25madhumita_devdw.ORDERS o ON o.dw_order_id = od.dw_order_id
+        FROM {REDSHIFT_SCHEMA_DW}.ORDERDETAILS od
+        JOIN {REDSHIFT_SCHEMA_DW}.ORDERS o ON o.dw_order_id = od.dw_order_id
         WHERE CAST(o.cancelledDate AS DATE) >= '{ETL_BATCH_DATE}' AND UPPER(TRIM(o.status)) = 'CANCELLED'
         GROUP BY o.cancelledDate, o.dw_customer_id, o.src_create_timestamp, o.src_update_timestamp, od.etl_batch_no, od.etl_batch_date
 
@@ -198,8 +195,8 @@ try:
                o.src_update_timestamp AS dw_update_timestamp,
                od.etl_batch_no,
                od.etl_batch_date
-        FROM j25madhumita_devdw.ORDERDETAILS od
-        JOIN j25madhumita_devdw.ORDERS o ON o.dw_order_id = od.dw_order_id
+        FROM {REDSHIFT_SCHEMA_DW}.ORDERDETAILS od
+        JOIN {REDSHIFT_SCHEMA_DW}.ORDERS o ON o.dw_order_id = od.dw_order_id
         WHERE CAST(o.shippedDate AS DATE) >= '{ETL_BATCH_DATE}' AND UPPER(TRIM(o.status)) = 'SHIPPED'
         GROUP BY o.shippedDate, o.dw_customer_id, o.src_create_timestamp, o.src_update_timestamp, od.etl_batch_no, od.etl_batch_date
 
@@ -228,7 +225,7 @@ try:
                p.src_update_timestamp AS dw_update_timestamp,
                p.etl_batch_no,
                p.etl_batch_date
-        FROM j25madhumita_devdw.PAYMENTS p
+        FROM {REDSHIFT_SCHEMA_DW}.PAYMENTS p
         JOIN first_payment_cte fpay ON p.dw_customer_id = fpay.dw_customer_id
         WHERE CAST(p.paymentDate AS DATE) >= '{ETL_BATCH_DATE}'
         GROUP BY p.paymentDate, p.dw_customer_id, fpay.first_payment_date, p.src_create_timestamp, p.src_update_timestamp, p.etl_batch_no, p.etl_batch_date
@@ -258,8 +255,8 @@ try:
                o.src_update_timestamp AS dw_update_timestamp,
                od.etl_batch_no,
                od.etl_batch_date
-        FROM j25madhumita_devdw.ORDERDETAILS od
-        JOIN j25madhumita_devdw.ORDERS o ON o.dw_order_id = od.dw_order_id
+        FROM {REDSHIFT_SCHEMA_DW}.ORDERDETAILS od
+        JOIN {REDSHIFT_SCHEMA_DW}.ORDERS o ON o.dw_order_id = od.dw_order_id
         WHERE CAST(o.orderDate AS DATE) >= '{ETL_BATCH_DATE}' AND UPPER(TRIM(o.status)) NOT IN ('CANCELLED', 'SHIPPED')
         GROUP BY o.orderDate, o.dw_customer_id, o.src_create_timestamp, o.src_update_timestamp, od.etl_batch_no, od.etl_batch_date
     ) final
@@ -267,7 +264,7 @@ try:
     """
 
     cur.execute(query)
-    print(f" Inserted {cur.rowcount} rows into daily_customer_summary.\n")
+    #print(f" Inserted {cur.rowcount} rows into daily_customer_summary.\n")
     conn.commit()
 
 except Exception as e:
@@ -277,4 +274,3 @@ except Exception as e:
 finally:
     cur.close()
     conn.close()
-    print("Connection closed.\n")

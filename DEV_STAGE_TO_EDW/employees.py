@@ -6,6 +6,7 @@ load_dotenv()
 
 ETL_BATCH_NO = os.getenv("ETL_BATCH_NO")
 ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
+REDSHIFT_SCHEMA_DW=os.getenv("REDSHIFT_SCHEMA_DW")
 
 try:
     conn = psycopg2.connect(
@@ -16,10 +17,10 @@ try:
         password=os.getenv("REDSHIFT_PASSWORD")
     )
     cur = conn.cursor()
-    print("Connected to Redshift successfully\n")
+    #print("Connected to Redshift successfully\n")
 
     insert_sql = f"""
-        INSERT INTO j25madhumita_devdw.employees (
+        INSERT INTO {REDSHIFT_SCHEMA_DW}.employees (
             employeeNumber,
             lastName,
             firstName,
@@ -47,12 +48,12 @@ try:
             {ETL_BATCH_NO} AS etl_batch_no,
             '{ETL_BATCH_DATE}' AS etl_batch_date
         FROM j25madhumita_devstage.employees s
-        LEFT JOIN j25madhumita_devdw.employees e
+        LEFT JOIN {REDSHIFT_SCHEMA_DW}.employees e
             ON s.employeeNumber = e.employeeNumber
         WHERE e.employeeNumber IS NULL;
     """
     cur.execute(insert_sql)
-    print(f"Inserted {cur.rowcount} new records into DW.\n")
+    #print(f"Inserted {cur.rowcount} new records into DW.\n")
 
     update_sql = f"""
         WITH updated AS (
@@ -67,11 +68,11 @@ try:
                 s.jobTitle,
                 s.update_timestamp AS src_update_timestamp
             FROM j25madhumita_devstage.employees s
-            JOIN j25madhumita_devdw.employees d
+            JOIN {REDSHIFT_SCHEMA_DW}.employees d
                 ON s.employeeNumber = d.employeeNumber
             WHERE s.update_timestamp > d.src_update_timestamp
         )
-        UPDATE j25madhumita_devdw.employees
+        UPDATE {REDSHIFT_SCHEMA_DW}.employees
         SET
             lastName = u.lastName,
             firstName = u.firstName,
@@ -84,28 +85,28 @@ try:
             etl_batch_no = {ETL_BATCH_NO},
             etl_batch_date = '{ETL_BATCH_DATE}'
         FROM updated u
-        WHERE j25madhumita_devdw.employees.employeeNumber = u.dw_employeeNumber;
+        WHERE {REDSHIFT_SCHEMA_DW}.employees.employeeNumber = u.dw_employeeNumber;
     """
     cur.execute(update_sql)
-    print(f"Updated {cur.rowcount} existing records in DW.\n")
+    #print(f"Updated {cur.rowcount} existing records in DW.\n")
 
-    update_office_ref = """
-        UPDATE j25madhumita_devdw.employees
+    update_office_ref = f"""
+        UPDATE {REDSHIFT_SCHEMA_DW}.employees
         SET dw_office_id = o.dw_office_id
-        FROM j25madhumita_devdw.offices o
-        WHERE j25madhumita_devdw.employees.officeCode = o.officeCode;
+        FROM {REDSHIFT_SCHEMA_DW}.offices o
+        WHERE {REDSHIFT_SCHEMA_DW}.employees.officeCode = o.officeCode;
     """
     cur.execute(update_office_ref)
-    print(f"Updated {cur.rowcount} office references in DW.\n")
+    #print(f"Updated {cur.rowcount} office references in DW.\n")
 
-    update_reporting_ref = """
-        UPDATE j25madhumita_devdw.employees
+    update_reporting_ref = f"""
+        UPDATE {REDSHIFT_SCHEMA_DW}.employees
         SET dw_reporting_employee_id = r.dw_employee_id
-        FROM (SELECT employeeNumber, dw_employee_id FROM j25madhumita_devdw.employees ) r
-        WHERE j25madhumita_devdw.employees.reportsTo = r.employeeNumber;
+        FROM (SELECT employeeNumber, dw_employee_id FROM {REDSHIFT_SCHEMA_DW}.employees ) r
+        WHERE {REDSHIFT_SCHEMA_DW}.employees.reportsTo = r.employeeNumber;
     """
     cur.execute(update_reporting_ref)
-    print(f"Updated {cur.rowcount} reporting relationships in DW.\n")
+    #print(f"Updated {cur.rowcount} reporting relationships in DW.\n")
 
     conn.commit()
 
@@ -116,4 +117,3 @@ except Exception as e:
 finally:
     cur.close()
     conn.close()
-    print("Connection closed.")

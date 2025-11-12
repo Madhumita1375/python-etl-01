@@ -5,7 +5,6 @@ import psycopg2
 
 load_dotenv()
 
-# --- Redshift connection params ---
 REDSHIFT_HOST = os.getenv("REDSHIFT_HOST")
 REDSHIFT_PORT = os.getenv("REDSHIFT_PORT")
 REDSHIFT_DB = os.getenv("REDSHIFT_DB")
@@ -57,7 +56,6 @@ def update_env(etl_batch_no, etl_batch_date):
             lines.append(line)
     with open(env_file, "w") as f:
         f.writelines(lines)
-    print(f"Updated .env with ETL_BATCH_NO={etl_batch_no}, ETL_BATCH_DATE={etl_batch_date}\n")
 
 def run_etl_for_table(table_name):
     etl_batch_no, etl_batch_date = get_etl_batch_details()
@@ -75,14 +73,12 @@ def run_etl_for_table(table_name):
         print(f" Error while executing {table_name}.py: {e}\n")
 
 def run_etl_scripts():
-    # Fetch batch context
     etl_batch_no, etl_batch_date = get_etl_batch_details()
     print(etl_batch_no, etl_batch_date)
     if not etl_batch_no or not etl_batch_date:
-        print("!!!!!!!Missing ETL batch context — exiting.")
+        print("Missing ETL batch context — exiting.")
         return
 
-    # Read TABLE_LIST_DW from .env
     tables = os.getenv("TABLE_LIST_DW")
     print(tables)
     tables = [t.strip().lower() for t in tables.split(",")] if tables else []
@@ -91,13 +87,13 @@ def run_etl_scripts():
         print("No TABLE_LIST_DW found in .env.")
         return
 
-    print(f"\nStarting Stage → DW ETL Load")
+    print(f"\nStarting Stage → DW ")
     print(f"Batch No: {etl_batch_no} | Batch Date: {etl_batch_date}\n")
 
     for table in tables:
         run_etl_for_table(table)
 
-    print("All Stage → DW ETL scripts executed successfully.\n")
+    print("All Stage → DW scripts executed successfully.\n")
 
 if __name__ == "__main__":
     run_etl_scripts()

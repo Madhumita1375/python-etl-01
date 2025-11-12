@@ -1,35 +1,43 @@
+
 import os
 import subprocess
 from dotenv import load_dotenv
 from pathlib import Path
+from db_connection import create_or_reuse_db_link
 from db_connection import get_batch_date_from_redshift, update_env_batch_date
-load_dotenv()
 
+load_dotenv()
 
 tables = os.getenv("TABLE_LIST")
 tables = [t.strip().lower() for t in tables.split(",")] if tables else []
+
+ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
 
 def main():
     if not tables:
         print("No tables found in .env (TABLE_LIST).")
         return
-    
-    for table in tables:
-        ETL_BATCH_DATE = get_batch_date_from_redshift(table)
-        update_env_batch_date(ETL_BATCH_DATE)
-        #print(ETL_BATCH_DATE)
+    ETL_BATCH_DATE = get_batch_date_from_redshift(tables)
+    update_env_batch_date(ETL_BATCH_DATE)
+    print(f"Initializing DB link for ETL batch date: {ETL_BATCH_DATE}")
+    create_or_reuse_db_link()
 
+    processes = []
+    for table in tables:
         script_path = Path(f"Source_to_S3/{table.lower()}.py")
         if script_path.exists():
-            try:
-                subprocess.run(["python", str(script_path)], check=True)
-                print(f"Successfully executed {script_path.name}")
-            except subprocess.CalledProcessError as e:
-                print(f"Error while executing {script_path.name}: {e}")
+            p = subprocess.Popen(["python", str(script_path)])
+            processes.append((table, p))
+            print(f"Started {table}")
         else:
-            print(f"Script not found for table '{table}' ({script_path}).")
+            print(f"Script not found for table '{table}'")
 
-    print("\nAll scripts executed successfully.")
+    for table, p in processes:
+        p.wait()
+
+    print("\nAll ETL jobs finished successfully.")
 
 if __name__ == "__main__":
     main()
+
+

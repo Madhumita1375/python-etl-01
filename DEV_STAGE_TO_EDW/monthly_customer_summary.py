@@ -6,15 +6,13 @@ load_dotenv()
 
 ETL_BATCH_NO = os.getenv("ETL_BATCH_NO")
 ETL_BATCH_DATE = os.getenv("ETL_BATCH_DATE")
+REDSHIFT_SCHEMA_DW=os.getenv("REDSHIFT_SCHEMA_DW")
 
-if not ETL_BATCH_NO or not ETL_BATCH_DATE or ETL_BATCH_NO == "None" or ETL_BATCH_DATE == "None":
-    from main import get_etl_batch_details
-    ETL_BATCH_NO, ETL_BATCH_DATE = get_etl_batch_details()
 
-print(f"\nRunning monthly_customer_summary ETL | Batch No: {ETL_BATCH_NO} | Date: {ETL_BATCH_DATE}\n")
+
+#print(f"\nRunning monthly_customer_summary ETL | Batch No: {ETL_BATCH_NO} | Date: {ETL_BATCH_DATE}\n")
 
 try:
-    # Connect to Redshift
     conn = psycopg2.connect(
         host=os.getenv("REDSHIFT_HOST"),
         port=os.getenv("REDSHIFT_PORT"),
@@ -23,10 +21,10 @@ try:
         password=os.getenv("REDSHIFT_PASSWORD")
     )
     cur = conn.cursor()
-    print("Connected to Redshift successfully!\n")
+    #print("Connected to Redshift successfully!\n")
 
     update_sql = f"""
-    UPDATE j25madhumita_devdw.monthly_customer_summary AS mc
+    UPDATE {REDSHIFT_SCHEMA_DW}.monthly_customer_summary AS mc
     SET 
         order_count = mc.order_count + dc.order_count,
         order_apd = CASE WHEN mc.order_apd = 1 THEN 1 ELSE dc.order_apd END,
@@ -61,17 +59,17 @@ try:
         dw_update_timestamp = GETDATE(),
         etl_batch_no = dc.etl_batch_no,
         etl_batch_date = dc.etl_batch_date
-    FROM j25madhumita_devdw.daily_customer_summary AS dc
+    FROM {REDSHIFT_SCHEMA_DW}.daily_customer_summary AS dc
     WHERE 
         mc.start_of_the_month_date = DATE_TRUNC('month', dc.summary_date)
         AND mc.dw_customer_id = dc.dw_customer_id
         AND CAST(dc.summary_date AS DATE) >= '{ETL_BATCH_DATE}';
     """
     cur.execute(update_sql)
-    print(f"Updated {cur.rowcount} monthly_customer_summary records.\n")
+    #print(f"Updated {cur.rowcount} monthly_customer_summary records.\n")
 
     insert_sql = f"""
-    INSERT INTO j25madhumita_devdw.monthly_customer_summary (
+    INSERT INTO {REDSHIFT_SCHEMA_DW}.monthly_customer_summary (
         start_of_the_month_date,
         dw_customer_id,
         order_count,
@@ -130,15 +128,15 @@ try:
         GETDATE() AS dw_update_timestamp,
         MAX(dc.etl_batch_no) AS etl_batch_no,
         MAX(dc.etl_batch_date) AS etl_batch_date
-    FROM j25madhumita_devdw.daily_customer_summary AS dc
-    LEFT JOIN j25madhumita_devdw.monthly_customer_summary AS dcs 
+    FROM {REDSHIFT_SCHEMA_DW}.daily_customer_summary AS dc
+    LEFT JOIN {REDSHIFT_SCHEMA_DW}.monthly_customer_summary AS dcs 
         ON DATE_TRUNC('month', dc.summary_date) = dcs.start_of_the_month_date
         AND dc.dw_customer_id = dcs.dw_customer_id
     WHERE dcs.start_of_the_month_date IS NULL
     GROUP BY DATE_TRUNC('month', dc.summary_date), dc.dw_customer_id;
     """
     cur.execute(insert_sql)
-    print(f"Inserted {cur.rowcount} new monthly_customer_summary records.\n")
+    #print(f"Inserted {cur.rowcount} new monthly_customer_summary records.\n")
 
     conn.commit()
 
@@ -149,4 +147,4 @@ except Exception as e:
 finally:
     cur.close()
     conn.close()
-    print("Connection closed.\n")
+    #print("Connection closed.\n")

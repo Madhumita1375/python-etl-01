@@ -4,7 +4,7 @@ import boto3
 import csv
 from io import StringIO
 from dotenv import load_dotenv
-from db_connection import get_connection
+from db_connection import get_oracle_connection
 
 def export_orderdetails_to_s3():
     load_dotenv()
@@ -21,8 +21,8 @@ def export_orderdetails_to_s3():
         "ORDERNUMBER", "PRODUCTCODE", "QUANTITYORDERED", "PRICEEACH", "ORDERLINENUMBER", "CREATE_TIMESTAMP","UPDATE_TIMESTAMP"
     ]
     columns_str = ", ".join(table_columns)
+    conn = get_oracle_connection()
 
-    conn = get_connection()
     cur = conn.cursor()
 
     query = f"""

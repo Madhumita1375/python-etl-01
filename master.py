@@ -71,7 +71,6 @@ def run_pipeline(script_path):
 
 
 def main():
-    print("\n Starting MASTER ETL Orchestration...\n")
 
     etl_batch_no, etl_batch_date = get_batch_info()
     update_env(etl_batch_no, etl_batch_date)
